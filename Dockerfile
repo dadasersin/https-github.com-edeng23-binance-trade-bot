@@ -1,10 +1,9 @@
-
-# --- Stage 1: Builder with TA-Lib and dependencies ---
+# --- Stage 1: Builder with TA-Lib ---
 FROM --platform=$BUILDPLATFORM python:3.11-slim-bookworm as builder
 
 WORKDIR /install
 
-# TA-Lib ve sistem bağımlılıkları
+# TA-Lib sistem bağımlılıkları
 RUN apt-get update && \
     apt-get install -y \
     build-essential \
@@ -15,31 +14,24 @@ RUN apt-get update && \
     ./configure --prefix=/usr && \
     make && \
     make install && \
-    rm -rf ta-lib*
+    rm -rf ta-lib* && \
+    ldconfig
 
-# FreqTrade bağımlılıklarını yükle
+# Python bağımlılıklarını yükle
 COPY requirements.txt .
-RUN pip install --user --prefix=/install -r requirements.txt
+RUN pip install --prefix=/install -r requirements.txt
 
-# --- Stage 2: Runtime image ---
+# --- Stage 2: Runtime ---
 FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-# Builder'dan gerekli dosyaları kopyala
-COPY --from=builder /install /usr/local
-COPY --from=builder /usr/lib/libta_lib.so.0 /usr/lib/
+# TA-Lib ve Python kütüphanelerini kopyala
+COPY --from=builder /usr/lib/libta_lib.* /usr/lib/
 COPY --from=builder /usr/include/ta-lib/ /usr/include/ta-lib/
+COPY --from=builder /install /usr/local
 
-# Uygulama dosyalarını kopyala
+# Uygulama dosyaları
 COPY . .
 
-# Environment variables (Render'da ayarlanacak)
-ENV FT_APP_ENV="production"
-ENV PYTHONUNBUFFERED=1
-
-# Persistan veriler için volume
-VOLUME /app/user_data
-
-# FreqTrade'i çalıştır
-CMD ["freqtrade", "trade", "--strategy", "MyStrategy", "--db-url", "sqlite:///trades.sqlite"]
+CMD ["freqtrade", "trade", "--strategy", "MyStrategy"]
