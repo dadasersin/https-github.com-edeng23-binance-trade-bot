@@ -1,1 +1,8 @@
-
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "python"  # Python güncellemelerini yoksay
